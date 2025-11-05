@@ -77,7 +77,33 @@ If you've added `render.yaml` to your repository, Render will automatically dete
      - Option C: Include the training directory in your repository (if not too large)
    - Without these files, the homepage will load but predictions will fail
 
-## Troubleshooting 500 Errors
+## Troubleshooting Common Issues
+
+### "No leagues available" / "no such table" Error
+
+If you see "No leagues available" or `sqlite3.OperationalError: no such table: predictions_league`:
+
+**This means migrations haven't run successfully. Fix it:**
+
+**On Render:**
+1. Go to your service dashboard
+2. Click on **Shell** tab (or use **One-off Jobs**)
+3. Run these commands in order:
+   ```bash
+   python manage.py migrate
+   python manage.py populate_leagues
+   ```
+4. Refresh your website
+
+**Locally:**
+```bash
+py manage.py migrate
+py manage.py populate_leagues
+```
+
+**Note:** The `build.sh` script should run migrations automatically, but if it fails, you need to run them manually.
+
+### 500 Errors
 
 If you're seeing a 500 error:
 

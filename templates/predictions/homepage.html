@@ -1,10 +1,9 @@
-{% extends 'base.html' %}
-
-{% block title %}Football Match Predictor - Home{% endblock %}
-
-{% block content %}
+{% extends 'base.html' %} {% block title %}Football Match Predictor - Home{%
+endblock %} {% block content %}
 <!-- Hero Section -->
-<div class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-xl mb-12 p-8 text-white">
+<div
+  class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-xl mb-12 p-8 text-white"
+>
   <div class="max-w-3xl mx-auto text-center">
     <h1 class="text-4xl md:text-5xl font-bold mb-4">
       Football Match Predictor
@@ -18,71 +17,95 @@
 
 <!-- Leagues by Category -->
 <div class="space-y-12">
-  {% if leagues_by_category %}
-    {% for category, leagues in leagues_by_category.items %}
-      <div>
-        <h2 class="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b-2 border-gray-300">
-          {{ category }}
-        </h2>
+  {% if leagues_by_category %} {% for category, leagues in
+  leagues_by_category.items %}
+  <div>
+    <h2
+      class="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b-2 border-gray-300"
+    >
+      {{ category }}
+    </h2>
 
-        {% if leagues %}
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {% for league in leagues %}
-              <a
-                href="{% url 'predictions:league_detail' league.slug %}"
-                class="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 p-6 border-2 border-transparent hover:border-primary hover:-translate-y-1"
-                title="Go to {{ league.name }} predictions"
-                aria-label="Go to {{ league.name }} predictions"
-              >
-                <div class="flex items-center justify-between">
-                  <div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ league.name }}</h3>
-                    {% if league.model_path %}
-                      <span
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
-                        title="This league has a predictive model ready to use"
-                      >
-                        Model Available
-                      </span>
-                    {% else %}
-                      <span
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                        title="Model coming soon"
-                      >
-                        Coming Soon
-                      </span>
-                    {% endif %}
-                  </div>
-                  <svg
-                    class="w-6 h-6 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M9 5l7 7-7 7"
-                    ></path>
-                  </svg>
-                </div>
-              </a>
-            {% endfor %}
+    {% if leagues %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for league in leagues %}
+      <a
+        href="{% url 'predictions:league_detail' league.slug %}"
+        class="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 p-6 border-2 border-transparent hover:border-primary hover:-translate-y-1"
+        title="Go to {{ league.name }} predictions"
+        aria-label="Go to {{ league.name }} predictions"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">
+              {{ league.name }}
+            </h3>
+            {% if league.model_path %}
+            <span
+              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+              title="This league has a predictive model ready to use"
+            >
+              Model Available
+            </span>
+            {% else %}
+            <span
+              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+              title="Model coming soon"
+            >
+              Coming Soon
+            </span>
+            {% endif %}
           </div>
-        {% else %}
-          <div class="text-center py-6">
-            <p class="text-gray-600 text-lg">No leagues in this category yet.</p>
-          </div>
-        {% endif %}
-      </div>
-    {% endfor %}
-  {% else %}
-    <div class="text-center py-12">
-      <p class="text-gray-600 text-lg">
-        No leagues available. Please add leagues in the admin panel.
-      </p>
+          <svg
+            class="w-6 h-6 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5l7 7-7 7"
+            ></path>
+          </svg>
+        </div>
+      </a>
+      {% endfor %}
     </div>
+    {% else %}
+    <div class="text-center py-6">
+      <p class="text-gray-600 text-lg">No leagues in this category yet.</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %} {% else %}
+  <div
+    class="text-center py-12 bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg"
+  >
+    <h3 class="text-xl font-semibold text-yellow-800 mb-2">Setup Required</h3>
+    <p class="text-yellow-700 mb-4">
+      Database tables need to be created. Please run migrations and populate
+      leagues.
+    </p>
+    <div
+      class="text-sm text-yellow-600 bg-yellow-100 p-4 rounded mt-4 text-left"
+    >
+      <p class="font-semibold mb-2">On Render:</p>
+      <code class="bg-yellow-200 px-2 py-1 rounded"
+        >python manage.py migrate</code
+      ><br />
+      <code class="bg-yellow-200 px-2 py-1 rounded"
+        >python manage.py populate_leagues</code
+      >
+      <p class="font-semibold mt-3 mb-2">Locally:</p>
+      <code class="bg-yellow-200 px-2 py-1 rounded">py manage.py migrate</code
+      ><br />
+      <code class="bg-yellow-200 px-2 py-1 rounded"
+        >py manage.py populate_leagues</code
+      >
+    </div>
+  </div>
   {% endif %}
 </div>
 {% endblock %}

@@ -21,11 +21,16 @@ def homepage(request):
                 leagues_by_category[category] = []
             leagues_by_category[category].append(league)
     except Exception as e:
-        # Handle database errors gracefully
-        import traceback
-        traceback.print_exc()
-        # Return empty context if database is not ready
-        pass
+        # Handle database errors gracefully (e.g., migrations not run)
+        from django.db import OperationalError
+        if isinstance(e, OperationalError):
+            # Database tables don't exist - migrations need to be run
+            # Return empty context, template will show message
+            pass
+        else:
+            # Log other errors but don't crash
+            import traceback
+            traceback.print_exc()
     
     context = {
         'leagues_by_category': leagues_by_category,
