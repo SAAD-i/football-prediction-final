@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ league.name }} - Football Predictor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: "#1e40af",
+              secondary: "#dc2626",
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center">
+            <a href="/" class="flex items-center space-x-2">
+              <svg
+                class="w-8 h-8 text-primary"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                ></path>
+              </svg>
+              <span class="text-xl font-bold text-gray-900"
+                >Football Predictor</span
+              >
+            </a>
+          </div>
+          <div class="hidden md:block">
+            <div class="ml-10 flex items-baseline space-x-4">
+              <a
+                href="/"
+                class="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
+                >Home</a
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Breadcrumb -->
+      <nav class="mb-6">
+        <ol class="flex items-center space-x-2 text-sm text-gray-600">
+          <li><a href="/" class="hover:text-primary">Home</a></li>
+          <li><span class="mx-2">/</span></li>
+          <li class="text-gray-900 font-medium">{{ league.name }}</li>
+        </ol>
+      </nav>
+
+      <!-- League Header -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">
+              {{ league.name }}
+            </h1>
+            <p class="text-gray-600">{{ league.category }}</p>
+          </div>
+          <span
+            class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800"
+            >⏳ Coming Soon</span
+          >
+        </div>
+      </div>
+
+      <!-- Coming Soon Message -->
+      <div
+        class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg mb-8"
+      >
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-yellow-800">
+              Prediction Not Available
+            </h3>
+            <div class="mt-2 text-sm text-yellow-700">
+              <p>
+                Prediction model for {{ league.name }} is not yet available.
+                Please check back soon!
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teams List -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">
+          Teams in {{ league.name }}
+        </h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {% for team in teams %}
+          <div class="bg-gray-50 rounded-lg p-3 text-center">
+            <span class="text-gray-900 font-medium">{{ team.name }}</span>
+          </div>
+          {% empty %}
+          <p class="text-gray-600 col-span-full text-center py-4">
+            No teams found for this league.
+          </p>
+          {% endfor %}
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="text-center text-gray-600 text-sm">
+          <p>
+            &copy; 2024 Football Match Predictor. Powered by Machine Learning.
+          </p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

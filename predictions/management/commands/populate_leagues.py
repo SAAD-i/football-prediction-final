@@ -1,5 +1,38 @@
 from django.core.management.base import BaseCommand
 from predictions.models import League, Team
+from django.conf import settings
+import json
+from pathlib import Path
+
+
+# Mapping from URL slugs to folder names (same as in services.py)
+LEAGUE_FOLDER_MAP = {
+    'epl': 'EPL',
+    'english-premier-league': 'EPL',
+    'laliga-spain': 'LaLigaSpain',
+    'italian-serie-a': 'SerieA',
+    'german-bundesliga': 'BundesLiga',
+    'french-ligue-1': 'Ligue1',
+    'portuguese-primeira-liga': 'PremeiraLiga',
+    'efl-championship': 'EFL',
+}
+
+
+def get_teams_from_json(league_slug: str) -> list:
+    """Load teams from preprocessing_parameters.json for a league"""
+    folder_name = LEAGUE_FOLDER_MAP.get(league_slug, league_slug)
+    json_path = Path(settings.BASE_DIR) / 'predictions' / 'models_storage' / folder_name / 'preprocessing_parameters.json'
+    
+    if json_path.exists():
+        try:
+            with open(json_path, 'r') as f:
+                data = json.load(f)
+                teams = data.get('teams', [])
+                return teams
+        except Exception as e:
+            print(f"Error reading {json_path}: {e}")
+            return []
+    return []
 
 
 class Command(BaseCommand):
@@ -67,19 +100,6 @@ class Command(BaseCommand):
             {'name': 'Australian A-League Men', 'category': 'Australia/Oceania', 'slug': 'australian-a-league-men'},
         ]
         
-        # EPL teams (from preprocessing_parameters.json)
-        epl_teams = [
-            "Arsenal", "Aston Villa", "Birmingham", "Blackburn", "Blackpool", "Bolton",
-            "Bournemouth", "Bradford", "Brentford", "Brighton", "Burnley", "Cardiff",
-            "Charlton", "Chelsea", "Coventry", "Crystal Palace", "Derby", "Everton",
-            "Fulham", "Huddersfield", "Hull", "Ipswich", "Leeds", "Leicester",
-            "Liverpool", "Luton", "Man City", "Man United", "Middlesboro", "Middlesbrough",
-            "Newcastle", "Norwich", "Nott'm Forest", "Portsmouth", "QPR", "Reading",
-            "Sheffield United", "Sheffield Weds", "Southampton", "Stoke", "Sunderland",
-            "Swansea", "Tottenham", "Watford", "West Brom", "West Ham", "Wigan",
-            "Wimbledon", "Wolves"
-        ]
-        
         # Create leagues
         for league_data in leagues_data:
             league, created = League.objects.get_or_create(
@@ -95,16 +115,28 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(f'League already exists: {league.name}')
             
-            # Add EPL teams
-            if league.slug == 'english-premier-league':
-                for team_name in epl_teams:
+            # Load teams from JSON file if available
+            teams_list = get_teams_from_json(league.slug)
+            
+            if teams_list:
+                team_count = 0
+                for team_name in teams_list:
+                    # Create slug from team name
+                    team_slug = team_name.lower().replace(' ', '-').replace("'", '').replace('&', 'and').replace('.', '')
                     team, team_created = Team.objects.get_or_create(
                         league=league,
                         name=team_name,
-                        defaults={'slug': team_name.lower().replace(' ', '-').replace("'", '').replace('&', 'and')}
+                        defaults={'slug': team_slug}
                     )
                     if team_created:
+                        team_count += 1
                         self.stdout.write(f'  Created team: {team_name}')
+                if team_count > 0:
+                    self.stdout.write(self.style.SUCCESS(f'  Added {team_count} teams to {league.name}'))
+                else:
+                    self.stdout.write(f'  All teams already exist for {league.name}')
+            else:
+                self.stdout.write(f'  No teams found for {league.name} (no preprocessing_parameters.json)')
         
         self.stdout.write(self.style.SUCCESS('\nSuccessfully populated leagues and teams!'))
 

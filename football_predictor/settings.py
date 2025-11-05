@@ -94,6 +94,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
+            'string_if_invalid': '',
         },
     },
 ]
@@ -161,15 +162,38 @@ MEDIA_ROOT = BASE_DIR / 'media'
 EPL_MODEL_BASE = BASE_DIR / 'predictions' / 'models_storage' / 'EPL'
 
 # Path to external training directory (for preprocessing pipeline and dataset)
-# On Render, this path won't exist, so we'll handle errors gracefully
-EPL_TRAINING_BASE = BASE_DIR.parent / 'Quick Delivery' / 'Europe-Domestic-Leagues' / 'EPL'
+# Base path for all leagues training data
+TRAINING_BASE_DIR = BASE_DIR.parent / 'Quick Delivery' / 'Europe-Domestic-Leagues'
+
+# Mapping from league slugs to their training directory names
+LEAGUE_TRAINING_MAP = {
+    'epl': 'EPL',
+    'english-premier-league': 'EPL',
+    'laliga-spain': 'LaLiga-Spain',
+    'italian-serie-a': 'Italian-Serie-A',
+    'german-bundesliga': 'German-Bundesliga',
+    'french-ligue-1': 'French-Ligue-1',
+    'portuguese-primeira-liga': 'Portuguese-Primeira-Liga',
+    'efl-championship': 'EFL-Championship',
+    'scottish-premiership': 'Scottish-Premiership',
+}
+
+# Function to get training base for a league
+def get_league_training_base(league_slug: str):
+    """Get training base path for a league"""
+    normalized = league_slug.lower().strip()
+    training_folder = LEAGUE_TRAINING_MAP.get(normalized)
+    if training_folder and TRAINING_BASE_DIR.exists():
+        training_path = TRAINING_BASE_DIR / training_folder
+        if training_path.exists():
+            return training_path
+    return None
 
 # Check if training directory exists, if not, use a fallback or handle gracefully
-import os
-if not os.path.exists(EPL_TRAINING_BASE):
+if not os.path.exists(TRAINING_BASE_DIR):
     # For production, we might need to store these files elsewhere
     # For now, set to None and handle in services.py
-    EPL_TRAINING_BASE = None
+    TRAINING_BASE_DIR = None
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

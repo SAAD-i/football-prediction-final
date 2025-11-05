@@ -1,0 +1,335 @@
+{% extends 'base.html' %} {% block title %}{{ league.name }} - Football
+Predictor{% endblock %} {% block content %}
+<!-- Breadcrumb -->
+<nav class="mb-6">
+  <ol class="flex items-center space-x-2 text-sm text-gray-600">
+    <li>
+      <a href="{% url 'predictions:homepage' %}" class="hover:text-primary"
+        >Home</a
+      >
+    </li>
+    <li><span class="mx-2">/</span></li>
+    <li class="text-gray-900 font-medium">{{ league.name }}</li>
+  </ol>
+</nav>
+
+<!-- League Header -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-8">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ league.name }}</h1>
+      <p class="text-gray-600">{{ league.category }}</p>
+    </div>
+    <span
+      class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-green-100 text-green-800"
+    >
+      ✓ Model Ready
+    </span>
+  </div>
+</div>
+
+<!-- Prediction Form -->
+<div class="bg-white rounded-lg shadow-md p-8 mb-8">
+  <h2 class="text-2xl font-bold text-gray-900 mb-6">Predict Match</h2>
+
+  <form id="predictionForm" class="space-y-6">
+    <input type="hidden" id="leagueSlug" value="{{ league.slug }}" />
+
+    <!-- Home Team Selection -->
+    <div>
+      <label
+        for="homeTeam"
+        class="block text-sm font-medium text-gray-700 mb-2"
+      >
+        Home Team
+      </label>
+      <select
+        id="homeTeam"
+        name="home_team"
+        required
+        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+      >
+        <option value="">Select Home Team</option>
+        {% for team in teams %}
+        <option value="{{ team.name }}">{{ team.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- VS Divider -->
+    <div class="flex items-center justify-center my-4">
+      <div class="flex items-center space-x-4">
+        <div class="h-px bg-gray-300 flex-1"></div>
+        <span class="text-gray-500 font-semibold text-xl">VS</span>
+        <div class="h-px bg-gray-300 flex-1"></div>
+      </div>
+    </div>
+
+    <!-- Away Team Selection -->
+    <div>
+      <label
+        for="awayTeam"
+        class="block text-sm font-medium text-gray-700 mb-2"
+      >
+        Away Team
+      </label>
+      <select
+        id="awayTeam"
+        name="away_team"
+        required
+        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+      >
+        <option value="">Select Away Team</option>
+        {% for team in teams %}
+        <option value="{{ team.name }}">{{ team.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Submit Button -->
+    <button
+      type="submit"
+      id="predictBtn"
+      class="w-full bg-primary hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+    >
+      <span id="predictBtnText">Predict Match</span>
+      <svg
+        id="loadingSpinner"
+        class="hidden animate-spin h-5 w-5 text-white"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          class="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          stroke-width="4"
+        ></circle>
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        ></path>
+      </svg>
+    </button>
+  </form>
+</div>
+
+<!-- Prediction Results -->
+<div
+  id="predictionResults"
+  class="hidden bg-white rounded-lg shadow-md p-8 mb-8"
+>
+  <h2 class="text-2xl font-bold text-gray-900 mb-6">Prediction Result</h2>
+  <div id="matchInfo" class="mb-6"></div>
+  <div id="predictionOutcome" class="mb-6"></div>
+  <div id="probabilityBars" class="space-y-4"></div>
+</div>
+
+<!-- Error Message -->
+<div
+  id="errorMessage"
+  class="hidden bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded"
+>
+  <div class="flex">
+    <div class="flex-shrink-0">
+      <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fill-rule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+          clip-rule="evenodd"
+        />
+      </svg>
+    </div>
+    <div class="ml-3">
+      <p id="errorText" class="text-sm text-red-700"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Teams List -->
+<div class="bg-white rounded-lg shadow-md p-6">
+  <h2 class="text-2xl font-bold text-gray-900 mb-4">
+    Teams in {{ league.name }}
+  </h2>
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+    {% for team in teams %}
+    <div class="bg-gray-50 rounded-lg p-3 text-center">
+      <span class="text-gray-900 font-medium">{{ team.name }}</span>
+    </div>
+    {% empty %}
+    <p class="text-gray-600 col-span-full text-center py-4">
+      No teams found for this league.
+    </p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === name + "=") {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  document
+    .getElementById("predictionForm")
+    .addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const homeTeam = document.getElementById("homeTeam").value;
+      const awayTeam = document.getElementById("awayTeam").value;
+      const leagueSlug = document.getElementById("leagueSlug").value;
+
+      if (!homeTeam || !awayTeam) {
+        showError("Please select both teams");
+        return;
+      }
+
+      if (homeTeam === awayTeam) {
+        showError("Home and away teams must be different");
+        return;
+      }
+
+      const predictBtn = document.getElementById("predictBtn");
+      const predictBtnText = document.getElementById("predictBtnText");
+      const loadingSpinner = document.getElementById("loadingSpinner");
+      const resultsDiv = document.getElementById("predictionResults");
+      const errorDiv = document.getElementById("errorMessage");
+
+      predictBtn.disabled = true;
+      predictBtnText.textContent = "Predicting...";
+      loadingSpinner.classList.remove("hidden");
+      resultsDiv.classList.add("hidden");
+      errorDiv.classList.add("hidden");
+
+      try {
+        const response = await fetch('{% url "predictions:predict_match" %}', {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken"),
+          },
+          body: JSON.stringify({
+            league_slug: leagueSlug,
+            home_team: homeTeam,
+            away_team: awayTeam,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          displayPrediction(data.prediction, homeTeam, awayTeam);
+        } else {
+          showError(data.error || "Prediction failed. Please try again.");
+        }
+      } catch (error) {
+        showError("An error occurred. Please try again.");
+        console.error("Prediction error:", error);
+      } finally {
+        predictBtn.disabled = false;
+        predictBtnText.textContent = "Predict Match";
+        loadingSpinner.classList.add("hidden");
+      }
+    });
+
+  function displayPrediction(prediction, homeTeam, awayTeam) {
+    const resultsDiv = document.getElementById("predictionResults");
+    const matchInfo = document.getElementById("matchInfo");
+    const outcomeDiv = document.getElementById("predictionOutcome");
+    const probabilityBars = document.getElementById("probabilityBars");
+
+    matchInfo.innerHTML = `
+      <div class="text-center mb-6">
+        <h3 class="text-xl font-semibold text-gray-900 mb-2">${homeTeam} vs ${awayTeam}</h3>
+      </div>
+    `;
+
+    const outcomeColors = {
+      "Home Win": "bg-green-500",
+      Draw: "bg-yellow-500",
+      "Away Win": "bg-blue-500",
+    };
+    const outcomeColor =
+      outcomeColors[prediction.outcome_label] || "bg-gray-500";
+
+    outcomeDiv.innerHTML = `
+      <div class="text-center p-6 rounded-lg ${outcomeColor} text-white">
+        <h4 class="text-2xl font-bold mb-2">${prediction.outcome_label}</h4>
+        <p class="text-lg">Confidence: ${(
+          Math.max(...Object.values(prediction.probabilities)) * 100
+        ).toFixed(1)}%</p>
+      </div>
+    `;
+
+    const probs = prediction.probabilities;
+    probabilityBars.innerHTML = `
+      <div class="space-y-4">
+        <div>
+          <div class="flex justify-between mb-1">
+            <span class="text-sm font-medium text-gray-700">Home Win</span>
+            <span class="text-sm font-medium text-gray-700">${(
+              probs.home_win * 100
+            ).toFixed(1)}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-4">
+            <div class="bg-green-500 h-4 rounded-full" style="width: ${
+              probs.home_win * 100
+            }%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between mb-1">
+            <span class="text-sm font-medium text-gray-700">Draw</span>
+            <span class="text-sm font-medium text-gray-700">${(
+              probs.draw * 100
+            ).toFixed(1)}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-4">
+            <div class="bg-yellow-500 h-4 rounded-full" style="width: ${
+              probs.draw * 100
+            }%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between mb-1">
+            <span class="text-sm font-medium text-gray-700">Away Win</span>
+            <span class="text-sm font-medium text-gray-700">${(
+              probs.away_win * 100
+            ).toFixed(1)}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-4">
+            <div class="bg-blue-500 h-4 rounded-full" style="width: ${
+              probs.away_win * 100
+            }%"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    resultsDiv.classList.remove("hidden");
+    resultsDiv.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function showError(message) {
+    const errorDiv = document.getElementById("errorMessage");
+    const errorText = document.getElementById("errorText");
+    errorText.textContent = message;
+    errorDiv.classList.remove("hidden");
+    errorDiv.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+</script>
+{% endblock %}

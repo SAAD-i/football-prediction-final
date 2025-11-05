@@ -179,9 +179,7 @@ $RECYCLE.BIN/
 .nfs*
 
 # Project-specific
-*.onnx
 *.pkl
 *.h5
 *.hdf5
-models_storage/
 

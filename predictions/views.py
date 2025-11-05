@@ -5,47 +5,22 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 
 from .models import League, Team
-from .services import ONNXPredictor
+# Don't import ONNXPredictor here - lazy import in predict_match to avoid homepage errors
+
+
+class StaticLeague:
+    """Simple class to represent a league with static data"""
+    def __init__(self, name, category, slug, model_path=None):
+        self.name = name
+        self.category = category
+        self.slug = slug
+        self.model_path = model_path
 
 
 def homepage(request):
-    """Homepage displaying all leagues"""
-    leagues_by_category = {}
-    
-    try:
-        # Group leagues by category
-        leagues = League.objects.filter(is_active=True).order_by('category', 'name')
-        for league in leagues:
-            category = league.category
-            if category not in leagues_by_category:
-                leagues_by_category[category] = []
-            leagues_by_category[category].append(league)
-    except Exception as e:
-        # Handle database errors gracefully (e.g., migrations not run)
-        from django.db import OperationalError, DatabaseError
-        import traceback
-        traceback.print_exc()
-        
-        if isinstance(e, (OperationalError, DatabaseError)):
-            # Database tables don't exist - migrations need to be run
-            # Return empty context, template will show message
-            pass
-        else:
-            # Log other errors but don't crash - return empty context
-            pass
-    
-    context = {
-        'leagues_by_category': leagues_by_category,
-    }
-    
-    try:
-        return render(request, 'predictions/homepage.html', context)
-    except Exception as e:
-        # If template rendering fails, return a simple error page
-        import traceback
-        traceback.print_exc()
-        from django.http import HttpResponse
-        return HttpResponse(f"Error loading page: {str(e)}", status=500)
+    """Homepage displaying all leagues - completely static HTML"""
+    # Return static template - no context needed
+    return render(request, 'predictions/homepage.html')
 
 
 def league_detail(request, slug):
@@ -73,6 +48,9 @@ def league_detail(request, slug):
 def predict_match(request):
     """Predict match outcome using ONNX model"""
     try:
+        # Lazy import to avoid import errors affecting homepage
+        from .services import ONNXPredictor
+        
         data = json.loads(request.body)
         league_slug = data.get('league_slug')
         home_team = data.get('home_team')
@@ -87,11 +65,22 @@ def predict_match(request):
         # Get league
         league = get_object_or_404(League, slug=league_slug, is_active=True)
         
-        # Check if model is available - handle both slugs
-        if league_slug not in ['epl', 'english-premier-league']:
+        # Supported leagues (Europe - Domestic Leagues)
+        supported_leagues = [
+            'epl', 'english-premier-league',
+            'laliga-spain',
+            'italian-serie-a',
+            'german-bundesliga',
+            'french-ligue-1',
+            'portuguese-primeira-liga',
+            'efl-championship',
+        ]
+        
+        # Check if model is available
+        if league_slug not in supported_leagues:
             return JsonResponse({
                 'success': False,
-                'error': f'Prediction not yet available for {league.name}. Only EPL is currently supported.'
+                'error': f'Prediction not yet available for {league.name}. Currently supported: {", ".join(supported_leagues)}'
             }, status=400)
         
         # Normalize league slug for predictor
