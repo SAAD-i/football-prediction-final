@@ -22,20 +22,30 @@ def homepage(request):
             leagues_by_category[category].append(league)
     except Exception as e:
         # Handle database errors gracefully (e.g., migrations not run)
-        from django.db import OperationalError
-        if isinstance(e, OperationalError):
+        from django.db import OperationalError, DatabaseError
+        import traceback
+        traceback.print_exc()
+        
+        if isinstance(e, (OperationalError, DatabaseError)):
             # Database tables don't exist - migrations need to be run
             # Return empty context, template will show message
             pass
         else:
-            # Log other errors but don't crash
-            import traceback
-            traceback.print_exc()
+            # Log other errors but don't crash - return empty context
+            pass
     
     context = {
         'leagues_by_category': leagues_by_category,
     }
-    return render(request, 'predictions/homepage.html', context)
+    
+    try:
+        return render(request, 'predictions/homepage.html', context)
+    except Exception as e:
+        # If template rendering fails, return a simple error page
+        import traceback
+        traceback.print_exc()
+        from django.http import HttpResponse
+        return HttpResponse(f"Error loading page: {str(e)}", status=500)
 
 
 def league_detail(request, slug):
