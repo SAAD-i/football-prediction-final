@@ -11,7 +11,7 @@ python manage.py migrate
 # Make start script executable
 chmod +x start.sh
 
-# Populate leagues if needed (uncomment if you want to run this on deployment)
-# python manage.py populate_leagues
+# Populate leagues and teams (required for homepage to work)
+python manage.py populate_leagues
 
 

@@ -139,7 +139,15 @@ MEDIA_ROOT = BASE_DIR / 'media'
 EPL_MODEL_BASE = BASE_DIR / 'predictions' / 'models_storage' / 'EPL'
 
 # Path to external training directory (for preprocessing pipeline and dataset)
+# On Render, this path won't exist, so we'll handle errors gracefully
 EPL_TRAINING_BASE = BASE_DIR.parent / 'Quick Delivery' / 'Europe-Domestic-Leagues' / 'EPL'
+
+# Check if training directory exists, if not, use a fallback or handle gracefully
+import os
+if not os.path.exists(EPL_TRAINING_BASE):
+    # For production, we might need to store these files elsewhere
+    # For now, set to None and handle in services.py
+    EPL_TRAINING_BASE = None
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

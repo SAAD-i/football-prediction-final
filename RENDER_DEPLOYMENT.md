@@ -64,6 +64,29 @@ If you've added `render.yaml` to your repository, Render will automatically dete
 
 4. **Secret Key**: Generate a secure secret key and set it as an environment variable in Render dashboard
 
+5. **Training Directory (Required for Predictions)**: 
+   - The EPL prediction feature requires access to the training directory with:
+     - `models/best_model_neural_network.pkl` (preprocessing pipeline)
+     - `train_epl_enhanced.py` (feature engineering functions)
+     - `epldata.csv` (historical match data)
+   - Currently, the app expects this at: `Quick Delivery/Europe-Domestic-Leagues/EPL/`
+   - **This path won't exist on Render by default**
+   - **Solutions**:
+     - Option A: Copy the necessary files to your Django app directory (recommended)
+     - Option B: Upload files to a cloud storage service and download during build
+     - Option C: Include the training directory in your repository (if not too large)
+   - Without these files, the homepage will load but predictions will fail
+
+## Troubleshooting 500 Errors
+
+If you're seeing a 500 error:
+
+1. **Check logs** in Render dashboard for the specific error
+2. **Database issues**: Ensure migrations ran successfully (`python manage.py migrate`)
+3. **Missing data**: Ensure `populate_leagues` command ran (already in build.sh)
+4. **Training directory**: If predictions fail, check if EPL_TRAINING_BASE path exists
+5. **Static files**: Ensure `collectstatic` ran successfully
+
 ## Generating a Secret Key
 
 Run this command to generate a secure secret key:

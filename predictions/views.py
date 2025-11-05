@@ -12,13 +12,20 @@ def homepage(request):
     """Homepage displaying all leagues"""
     leagues_by_category = {}
     
-    # Group leagues by category
-    leagues = League.objects.filter(is_active=True).order_by('category', 'name')
-    for league in leagues:
-        category = league.category
-        if category not in leagues_by_category:
-            leagues_by_category[category] = []
-        leagues_by_category[category].append(league)
+    try:
+        # Group leagues by category
+        leagues = League.objects.filter(is_active=True).order_by('category', 'name')
+        for league in leagues:
+            category = league.category
+            if category not in leagues_by_category:
+                leagues_by_category[category] = []
+            leagues_by_category[category].append(league)
+    except Exception as e:
+        # Handle database errors gracefully
+        import traceback
+        traceback.print_exc()
+        # Return empty context if database is not ready
+        pass
     
     context = {
         'leagues_by_category': leagues_by_category,

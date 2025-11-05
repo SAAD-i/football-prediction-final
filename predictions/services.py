@@ -63,11 +63,21 @@ class ONNXPredictor:
         print(f"ONNX model loaded. Input: {self.input_name}, Shape: {input_shape}, Expected features: {expected_features}")
         
         # Load original pipeline for preprocessing (like test_50.py does)
+        if settings.EPL_TRAINING_BASE is None:
+            raise FileNotFoundError(
+                "Training directory not found. EPL_TRAINING_BASE is not set. "
+                "The preprocessing pipeline and training data are required for predictions. "
+                "Please ensure the training directory is available or configure EPL_TRAINING_BASE in settings."
+            )
+        
         epl_training_base = Path(settings.EPL_TRAINING_BASE)
         pkl_path = epl_training_base / 'models' / 'best_model_neural_network.pkl'
         
         if not pkl_path.exists():
-            raise FileNotFoundError(f"Original model not found at {pkl_path}. Need it for preprocessing pipeline.")
+            raise FileNotFoundError(
+                f"Original model not found at {pkl_path}. Need it for preprocessing pipeline. "
+                f"Training directory exists: {epl_training_base.exists()}"
+            )
         
         print(f"Loading preprocessing pipeline from: {pkl_path}")
         try:
