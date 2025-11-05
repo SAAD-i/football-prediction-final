@@ -11,14 +11,38 @@ pip install --upgrade pip && pip install -r requirements.txt && python manage.py
 ```
 
 ### Start Command:
+You have two options:
+
+**Option 1: Use the start script (Recommended)**
+```bash
+./start.sh
+```
+
+**Option 2: Direct gunicorn command**
 ```bash
 gunicorn football_predictor.wsgi:application --bind 0.0.0.0:$PORT
 ```
 
+**Important**: 
+- **Do NOT use** `python manage.py runserver` - it doesn't bind to `0.0.0.0` properly
+- Make sure to use `gunicorn` and bind to `0.0.0.0:$PORT` 
+- The `PORT` environment variable is automatically provided by Render (default: `10000`)
+
 ### Environment Variables:
+
+Set these in your Render dashboard under **Environment**:
+
+- `PORT`: **Automatically provided by Render** (default: `10000`). 
+  - Render automatically sets this environment variable
+  - You can override it in Render dashboard: Go to your service → **Environment** → Add `PORT` with your desired value (e.g., `10000`)
+  - Usually not necessary to change, but useful if you need a specific port
+  - The start script (`start.sh`) reads this variable and uses it automatically
 - `DEBUG`: Set to `False` for production
-- `SECRET_KEY`: (Optional) Set a secure secret key. If not set, it will use the default (not recommended for production)
-- `ALLOWED_HOSTS`: (Optional) Comma-separated list of additional hosts
+- `SECRET_KEY`: **Required** - Set a secure secret key. Generate one using:
+  ```python
+  python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+  ```
+- `ALLOWED_HOSTS`: (Optional) Comma-separated list of additional hosts beyond your Render domain
 
 ## Alternative: Using render.yaml
 
@@ -26,12 +50,19 @@ If you've added `render.yaml` to your repository, Render will automatically dete
 
 ## Important Notes:
 
-1. **Static Files**: Make sure `STATIC_ROOT` is set correctly (already configured in settings.py)
-2. **Database**: Currently using SQLite. For production, consider using PostgreSQL:
+1. **Port Binding**: 
+   - Render automatically provides the `PORT` environment variable (default: `10000`)
+   - The start command uses `gunicorn` with `--bind 0.0.0.0:$PORT` to bind to all interfaces
+   - **Do NOT use** `python manage.py runserver` as it doesn't bind to `0.0.0.0` properly
+   - You can override PORT in Render dashboard if needed, but it's usually not necessary
+
+2. **Static Files**: Make sure `STATIC_ROOT` is set correctly (already configured in settings.py)
+
+3. **Database**: Currently using SQLite. For production, consider using PostgreSQL:
    - Add `psycopg2-binary` to requirements.txt
    - Configure DATABASES in settings.py to use Render's PostgreSQL database
-3. **Secret Key**: Generate a secure secret key and set it as an environment variable in Render dashboard
-4. **Port Binding**: The start command uses `$PORT` which Render automatically provides
+
+4. **Secret Key**: Generate a secure secret key and set it as an environment variable in Render dashboard
 
 ## Generating a Secret Key
 
