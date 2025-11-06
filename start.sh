@@ -3,7 +3,7 @@
 # This script ensures migrations run and gunicorn binds to the PORT environment variable
 
 # Get PORT from environment variable (default to 10000 if not set)
-PORT=${PORT:-10000}
+PORT=${PORT:-8000}
 
 # Run migrations if database tables don't exist
 echo "Checking database..."
