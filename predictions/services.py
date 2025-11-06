@@ -2,7 +2,6 @@ import os
 import json
 import numpy as np
 import pandas as pd
-import joblib
 from pathlib import Path
 from typing import Dict, Tuple, Optional
 from django.conf import settings
@@ -29,30 +28,17 @@ LEAGUE_FOLDER_MAP = {
     'scottish-premiership': 'ScotishPremiership',
 }
 
-# Mapping from URL slugs to training directory names (for Quick Delivery)
+# Mapping from URL slugs to training directory names (now matches models_storage folder names)
 LEAGUE_TRAINING_FOLDER_MAP = {
     'epl': 'EPL',
     'english-premier-league': 'EPL',
-    'laliga-spain': 'LaLiga-Spain',
-    'italian-serie-a': 'Italian-Serie-A',
-    'german-bundesliga': 'German-Bundesliga',
-    'french-ligue-1': 'French-Ligue-1',
-    'portuguese-primeira-liga': 'Portuguese-Primeira-Liga',
-    'efl-championship': 'EFL-Championship',
-    'scottish-premiership': 'Scottish-Premiership',
-}
-
-# Mapping from URL slugs to PKL model filenames
-LEAGUE_PKL_MODEL_MAP = {
-    'epl': 'best_model_neural_network.pkl',
-    'english-premier-league': 'best_model_neural_network.pkl',
-    'laliga-spain': 'best_model_laliga.pkl',
-    'italian-serie-a': 'best_model_seriea.pkl',
-    'german-bundesliga': 'best_model_bundesliga.pkl',
-    'french-ligue-1': 'best_model_ligue1.pkl',
-    'portuguese-primeira-liga': 'best_model_primeira.pkl',
-    'efl-championship': 'best_model_championship.pkl',
-    'scottish-premiership': 'best_model_scottish.pkl',
+    'laliga-spain': 'LaLigaSpain',  # Matches models_storage folder name
+    'italian-serie-a': 'SerieA',
+    'german-bundesliga': 'BundesLiga',
+    'french-ligue-1': 'Ligue1',
+    'portuguese-primeira-liga': 'PremeiraLiga',
+    'efl-championship': 'EFL',
+    'scottish-premiership': 'ScotishPremiership',
 }
 
 # Mapping from URL slugs to training script filenames
@@ -81,7 +67,6 @@ class ONNXPredictor:
     def __init__(self, league_slug: str):
         self.league_slug = league_slug
         self.session = None
-        self.preprocessor = None
         self.class_names = ['H', 'D', 'A']  # Default order
         self.preprocessing_params = None
         
@@ -96,8 +81,8 @@ class ONNXPredictor:
         # Get league folder name from slug
         folder_name = get_league_folder_name(self.league_slug)
         
-        # Get model base path
-        model_base = Path(settings.BASE_DIR) / 'predictions' / 'models_storage' / folder_name
+        # Get model base path (now in Europe-Domestic-Leagues subfolder)
+        model_base = Path(settings.BASE_DIR) / 'predictions' / 'models_storage' / 'Europe-Domestic-Leagues' / folder_name
         
         # Try different possible ONNX filenames
         league_slug_clean = self.league_slug.lower().replace('-', '_')
@@ -161,50 +146,11 @@ class ONNXPredictor:
             self.preprocessing_params = None
             print(f"No preprocessing_parameters.json found in {model_base}")
         
-        # Try to load PKL pipeline for all leagues (same as EPL approach)
-        self._try_load_league_pipeline()
-        
         print(f"Model ready for league: {self.league_slug}")
         print(f"Class order: {self.class_names}")
         if self.session:
             input_shape = self.session.get_inputs()[0].shape
             print(f"Model input shape: {input_shape}")
-    
-    def _try_load_league_pipeline(self):
-        """Try to load PKL pipeline for any league (same as EPL approach)"""
-        # Get training base path for this league
-        training_base = self._get_league_training_base()
-        if training_base is None:
-            return
-        
-        # Get PKL filename for this league
-        normalized_slug = self.league_slug.lower().strip()
-        pkl_filename = LEAGUE_PKL_MODEL_MAP.get(normalized_slug)
-        if not pkl_filename:
-            return
-        
-        pkl_path = training_base / 'models' / pkl_filename
-        
-        if pkl_path.exists():
-            try:
-                print(f"Loading preprocessing pipeline from: {pkl_path}")
-                saved_data = joblib.load(str(pkl_path))
-                pipeline = saved_data["pipeline"]
-                
-                # Extract preprocessing pipeline
-                base_estimator = pipeline
-                if hasattr(pipeline, 'calibrated_classifiers_'):
-                    if len(pipeline.calibrated_classifiers_) > 0:
-                        base_estimator = pipeline.calibrated_classifiers_[0].estimator
-                
-                if hasattr(base_estimator, 'named_steps'):
-                    self.preprocessor = base_estimator.named_steps.get("preprocess")
-                    if self.preprocessor:
-                        print("Preprocessing pipeline loaded successfully")
-                        # Store pipeline for later use
-                        self._pipeline = pipeline
-            except Exception as e:
-                print(f"Could not load PKL pipeline: {e}. Using JSON preprocessing.")
     
     def _get_league_training_base(self):
         """Get training base path for this league"""
@@ -220,177 +166,6 @@ class ONNXPredictor:
         if training_path.exists():
             return training_path
         return None
-    
-    def _preprocess_features(self, home_team: str, away_team: str, df: pd.DataFrame = None) -> np.ndarray:
-        """Preprocess features using the original pipeline preprocessor (like test_50.py)"""
-        # Import feature engineering functions from training directory
-        import sys
-        training_base = self._get_league_training_base()
-        if training_base is None:
-            raise ValueError(f"Training base not found for league: {self.league_slug}")
-        
-        if str(training_base) not in sys.path:
-            sys.path.insert(0, str(training_base))
-        
-        try:
-            # Try to import league-specific training script first
-            normalized_slug = self.league_slug.lower().strip()
-            training_script = LEAGUE_TRAINING_SCRIPT_MAP.get(normalized_slug)
-            
-            if training_script:
-                # League-specific script (EPL, LaLiga)
-                module_name = training_script.replace('.py', '')
-                training_module = __import__(module_name, fromlist=['engineer_features', 'load_dataset', 'DATA_PATH'])
-                engineer_features = training_module.engineer_features
-                load_dataset = training_module.load_dataset
-                DATA_PATH = training_module.DATA_PATH
-            else:
-                # Generic script for other leagues (located in parent directory)
-                import sys
-                import importlib.util
-                parent_dir = str(training_base.parent)
-                if parent_dir not in sys.path:
-                    sys.path.insert(0, parent_dir)
-                
-                # Try importing from parent directory
-                generic_script_path = Path(parent_dir) / 'train_league_generic.py'
-                if generic_script_path.exists():
-                    spec = importlib.util.spec_from_file_location("train_league_generic", str(generic_script_path))
-                    train_league_generic = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(train_league_generic)
-                    engineer_features = train_league_generic.engineer_features
-                    load_dataset = train_league_generic.load_dataset
-                else:
-                    raise FileNotFoundError(f"train_league_generic.py not found at {generic_script_path}")
-                
-                # Get data file path
-                data_files = {
-                    'italian-serie-a': 'serieadata.csv',
-                    'german-bundesliga': 'bundesligadata.csv',
-                    'french-ligue-1': 'ligue1data.csv',
-                    'portuguese-primeira-liga': 'primeiraligadata.csv',
-                    'efl-championship': 'championshipdata.csv',
-                    'scottish-premiership': 'scottishpremdata.csv',
-                }
-                data_filename = data_files.get(normalized_slug)
-                if not data_filename:
-                    raise ValueError(f"No data file mapping for league: {self.league_slug}")
-                DATA_PATH = str(training_base / data_filename)
-            
-            # Load and engineer features (training data only, no 2024-25)
-            if df is None:
-                # Check if load_dataset supports include_2024_25 parameter
-                try:
-                    df = load_dataset(DATA_PATH, include_2024_25=False)
-                except TypeError:
-                    # Generic script doesn't have include_2024_25 parameter
-                    df = load_dataset(DATA_PATH)
-            
-            df_features = engineer_features(df)
-            
-            # Get most recent match stats for teams (same as predict_match function)
-            # Try to find most recent match with home team at home
-            home_match = df_features[df_features["HomeTeam"] == home_team].tail(1)
-            # Try to find most recent match with away team away
-            away_match = df_features[df_features["AwayTeam"] == away_team].tail(1)
-            
-            # Create feature DataFrame exactly like predict_match function does
-            if len(home_match) > 0 and len(away_match) > 0:
-                # Extract features from home team's last home match
-                home_feats = home_match.iloc[0]
-                away_feats = away_match.iloc[0]
-                
-                # Create new prediction with combined features (same as predict_match)
-                feature_row = pd.DataFrame([{
-                    "HomeTeam": home_team,
-                    "AwayTeam": away_team,
-                    "home_form": home_feats["home_form"],
-                    "away_form": away_feats["away_form"],
-                    "home_goals_scored_avg": home_feats["home_goals_scored_avg"],
-                    "home_goals_conceded_avg": home_feats["home_goals_conceded_avg"],
-                    "away_goals_scored_avg": away_feats["away_goals_scored_avg"],
-                    "away_goals_conceded_avg": away_feats["away_goals_conceded_avg"],
-                    "h2h_home_win_rate": home_feats.get("h2h_home_win_rate", 0.33),
-                    "h2h_away_win_rate": home_feats.get("h2h_away_win_rate", 0.33),
-                    "h2h_draw_rate": home_feats.get("h2h_draw_rate", 0.33),
-                    "home_home_form": home_feats["home_home_form"],
-                    "away_away_form": away_feats["away_away_form"],
-                    "home_elo": home_feats["home_elo"],
-                    "away_elo": away_feats["away_elo"],
-                    "home_win_streak": home_feats["home_win_streak"],
-                    "away_win_streak": away_feats["away_win_streak"],
-                    "home_unbeaten_streak": home_feats["home_unbeaten_streak"],
-                    "away_unbeaten_streak": away_feats["away_unbeaten_streak"],
-                    "home_loss_streak": home_feats["home_loss_streak"],
-                    "away_loss_streak": away_feats["away_loss_streak"],
-                    "home_weighted_form": home_feats["home_weighted_form"],
-                    "away_weighted_form": away_feats["away_weighted_form"],
-                    "home_league_position": home_feats["home_league_position"],
-                    "away_league_position": away_feats["away_league_position"],
-                    "home_points": home_feats["home_points"],
-                    "away_points": away_feats["away_points"],
-                    "home_tier": home_feats["home_tier"],
-                    "away_tier": away_feats["away_tier"],
-                    "tier_diff": home_feats["tier_diff"],
-                    "tier_matchup": home_feats["tier_matchup"],
-                    "form_diff": home_feats["home_form"] - away_feats["away_form"],
-                    "goal_diff": (home_feats["home_goals_scored_avg"] - home_feats["home_goals_conceded_avg"]) - 
-                                (away_feats["away_goals_scored_avg"] - away_feats["away_goals_conceded_avg"]),
-                    "home_advantage": home_feats["home_home_form"] - away_feats["away_away_form"],
-                    "elo_diff": home_feats["home_elo"] - away_feats["away_elo"],
-                    "position_diff": away_feats["away_league_position"] - home_feats["home_league_position"],
-                    "points_diff": home_feats["home_points"] - away_feats["away_points"],
-                    "weighted_form_diff": home_feats["home_weighted_form"] - away_feats["away_weighted_form"],
-                    "streak_momentum": (home_feats["home_win_streak"] - away_feats["away_win_streak"]) + 
-                                      (away_feats["away_loss_streak"] - home_feats["home_loss_streak"]),
-                    "goal_expectation_home": home_feats["home_goals_scored_avg"] * (1 - away_feats["away_goals_conceded_avg"] / 3.0),
-                    "goal_expectation_away": away_feats["away_goals_scored_avg"] * (1 - home_feats["home_goals_conceded_avg"] / 3.0),
-                    "goal_expectation_diff": (home_feats["home_goals_scored_avg"] * (1 - away_feats["away_goals_conceded_avg"] / 3.0)) -
-                                            (away_feats["away_goals_scored_avg"] * (1 - home_feats["home_goals_conceded_avg"] / 3.0)),
-                    "home_power": home_feats["home_power"],
-                    "away_power": away_feats["away_power"],
-                    "power_diff": home_feats["power_diff"],
-                    "elo_form_interaction": (home_feats["home_elo"] - away_feats["away_elo"]) * (home_feats["home_weighted_form"] - away_feats["away_weighted_form"]),
-                    "position_form_interaction": (away_feats["away_league_position"] - home_feats["home_league_position"]) * (home_feats["home_form"] - away_feats["away_form"]),
-                    "tier_form_interaction": home_feats["tier_form_interaction"]
-                }])
-            else:
-                # Use defaults if no recent data (same as predict_match function)
-                feature_row = pd.DataFrame([{
-                    "HomeTeam": home_team,
-                    "AwayTeam": away_team,
-                    "home_form": 1.5, "away_form": 1.5,
-                    "home_goals_scored_avg": 1.0, "home_goals_conceded_avg": 1.0,
-                    "away_goals_scored_avg": 1.0, "away_goals_conceded_avg": 1.0,
-                    "h2h_home_win_rate": 0.33, "h2h_away_win_rate": 0.33, "h2h_draw_rate": 0.33,
-                    "home_home_form": 1.5, "away_away_form": 1.5,
-                    "home_elo": 1500, "away_elo": 1500,
-                    "home_win_streak": 0, "away_win_streak": 0,
-                    "home_unbeaten_streak": 0, "away_unbeaten_streak": 0,
-                    "home_loss_streak": 0, "away_loss_streak": 0,
-                    "home_weighted_form": 1.5, "away_weighted_form": 1.5,
-                    "home_league_position": 10, "away_league_position": 10,
-                    "home_points": 0, "away_points": 0,
-                    "home_tier": 2, "away_tier": 2,
-                    "tier_diff": 0, "tier_matchup": 22,
-                    "form_diff": 0, "goal_diff": 0, "home_advantage": 0,
-                    "elo_diff": 0, "position_diff": 0, "points_diff": 0,
-                    "weighted_form_diff": 0, "streak_momentum": 0,
-                    "goal_expectation_home": 1.0, "goal_expectation_away": 1.0, "goal_expectation_diff": 0,
-                    "home_power": 25, "away_power": 25, "power_diff": 0,
-                    "elo_form_interaction": 0, "position_form_interaction": 0, "tier_form_interaction": 0
-                }])
-            
-            # Apply preprocessing using the original pipeline's preprocessor (like test_50.py)
-            X_preprocessed = self.preprocessor.transform(feature_row).astype(np.float32)
-            
-            return X_preprocessed
-            
-        except Exception as e:
-            print(f"Error in feature preprocessing: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
     
     def _get_feature_row(self, home_team: str, away_team: str, df: pd.DataFrame = None) -> pd.DataFrame:
         """Get feature DataFrame for prediction (returns DataFrame, not preprocessed array)"""
@@ -581,39 +356,8 @@ class ONNXPredictor:
         if self.session is None:
             raise ValueError(f"Model not loaded for league: {self.league_slug}")
         
-        # For EPL with PKL pipeline, use the full pipeline approach
-        if self.preprocessor is not None:
-            return self._predict_with_pipeline(home_team, away_team, df)
-        
-        # For other leagues or when PKL is not available, use ONNX model directly
+        # Always use ONNX model with preprocessing_parameters.json
         return self._predict_with_onnx(home_team, away_team, df)
-    
-    def _predict_with_pipeline(self, home_team: str, away_team: str, df: pd.DataFrame = None) -> Tuple[str, Dict[str, float]]:
-        """Predict using PKL pipeline (same approach for all leagues)"""
-        if not hasattr(self, '_pipeline'):
-            training_base = self._get_league_training_base()
-            if training_base is None:
-                raise FileNotFoundError(f"Training base not found for league: {self.league_slug}")
-        
-            normalized_slug = self.league_slug.lower().strip()
-            pkl_filename = LEAGUE_PKL_MODEL_MAP.get(normalized_slug)
-            if not pkl_filename:
-                raise FileNotFoundError(f"No PKL model mapping for league: {self.league_slug}")
-            
-            pkl_path = training_base / 'models' / pkl_filename
-            if not pkl_path.exists():
-                raise FileNotFoundError(f"PKL pipeline not found at {pkl_path}")
-            saved_data = joblib.load(str(pkl_path))
-            self._pipeline = saved_data["pipeline"]
-        
-        # Create feature DataFrame
-        feature_row = self._get_feature_row(home_team, away_team, df)
-        
-        # Get probabilities from pipeline
-        proba = self._pipeline.predict_proba(feature_row)[0]
-        classes = self._pipeline.classes_ if hasattr(self._pipeline, 'classes_') else np.array(self.class_names)
-        
-        return self._format_prediction(proba, classes)
     
     def _predict_with_onnx(self, home_team: str, away_team: str, df: pd.DataFrame = None) -> Tuple[str, Dict[str, float]]:
         """Predict using ONNX model directly with preprocessing parameters - same approach as EPL"""
@@ -662,17 +406,67 @@ class ONNXPredictor:
         
         print(f"DEBUG: Expected features: {expected_features}")
         
-        # Convert DataFrame to numpy array (select numeric columns only)
-        numeric_cols = feature_row.select_dtypes(include=[np.number]).columns
-        feature_array = feature_row[numeric_cols].values.astype(np.float32)
+        # Extract team names for one-hot encoding
+        home_team_name = feature_row['HomeTeam'].iloc[0] if 'HomeTeam' in feature_row.columns else home_team
+        away_team_name = feature_row['AwayTeam'].iloc[0] if 'AwayTeam' in feature_row.columns else away_team
         
-        # Ensure feature_array is 2D: [1, num_features]
-        if len(feature_array.shape) == 1:
-            feature_array = feature_array.reshape(1, -1)
+        # Get numeric features (exclude HomeTeam and AwayTeam)
+        numeric_cols = feature_row.select_dtypes(include=[np.number]).columns.tolist()
+        numeric_features = feature_row[numeric_cols].values.astype(np.float32)
+        
+        # One-hot encode teams if teams list is available in preprocessing_params
+        team_features = None
+        if self.preprocessing_params and 'teams' in self.preprocessing_params:
+            teams_list = self.preprocessing_params['teams']
+            print(f"DEBUG: One-hot encoding teams. Total teams: {len(teams_list)}")
+            
+            # Create one-hot encoding for HomeTeam and AwayTeam
+            home_onehot = np.zeros(len(teams_list), dtype=np.float32)
+            away_onehot = np.zeros(len(teams_list), dtype=np.float32)
+            
+            # Find team indices (case-insensitive matching)
+            home_idx = None
+            away_idx = None
+            for i, team in enumerate(teams_list):
+                if team.lower() == home_team_name.lower():
+                    home_idx = i
+                if team.lower() == away_team_name.lower():
+                    away_idx = i
+            
+            if home_idx is not None:
+                home_onehot[home_idx] = 1.0
+                print(f"DEBUG: Home team '{home_team_name}' encoded at index {home_idx}")
+            else:
+                print(f"WARNING: Home team '{home_team_name}' not found in teams list. Available teams: {teams_list[:5]}...")
+            
+            if away_idx is not None:
+                away_onehot[away_idx] = 1.0
+                print(f"DEBUG: Away team '{away_team_name}' encoded at index {away_idx}")
+            else:
+                print(f"WARNING: Away team '{away_team_name}' not found in teams list. Available teams: {teams_list[:5]}...")
+            
+            # Combine team one-hot encodings: [home_onehot, away_onehot]
+            team_features = np.concatenate([home_onehot, away_onehot]).reshape(1, -1)
+            print(f"DEBUG: Team features shape: {team_features.shape}")
+        else:
+            print(f"WARNING: No teams list in preprocessing_params. Cannot one-hot encode teams.")
+        
+        # Ensure numeric_features is 2D: [1, num_features]
+        if len(numeric_features.shape) == 1:
+            numeric_features = numeric_features.reshape(1, -1)
+        
+        # Combine team features and numeric features
+        if team_features is not None:
+            feature_array = np.concatenate([team_features, numeric_features], axis=1)
+            print(f"DEBUG: Combined features shape: {feature_array.shape} (team: {team_features.shape[1]}, numeric: {numeric_features.shape[1]})")
+        else:
+            feature_array = numeric_features
+            print(f"WARNING: Using numeric features only (no team encoding). Shape: {feature_array.shape}")
         
         current_features = feature_array.shape[1]
         
         # Apply scaling from preprocessing_parameters.json if available
+        # Note: scaler_mean/scale are for numeric features only (teams are already one-hot encoded)
         if self.preprocessing_params and 'scaler_mean' in self.preprocessing_params and 'scaler_scale' in self.preprocessing_params:
             # Ensure scaler_mean and scaler_scale are lists/arrays, not dicts
             scaler_mean_val = self.preprocessing_params['scaler_mean']
@@ -692,32 +486,54 @@ class ONNXPredictor:
             if len(scaler_scale.shape) > 1:
                 scaler_scale = scaler_scale.flatten()
             
-            # Ensure we have the right number of features
-            if current_features == len(scaler_mean):
-                # Apply normalization: (x - mean) / scale
-                feature_array = (feature_array - scaler_mean) / scaler_scale
+            # Scale only numeric features (team features are already one-hot encoded, no scaling needed)
+            if team_features is not None:
+                # Feature array is [team_features, numeric_features]
+                # Scale only the numeric part
+                num_numeric = numeric_features.shape[1]
+                if num_numeric == len(scaler_mean):
+                    # Scale numeric features
+                    scaled_numeric = (numeric_features - scaler_mean) / scaler_scale
+                    # Recombine: [team_features, scaled_numeric_features]
+                    feature_array = np.concatenate([team_features, scaled_numeric], axis=1)
+                    current_features = feature_array.shape[1]
+                    print(f"DEBUG: Scaled numeric features. Final feature array shape: {feature_array.shape}")
+                else:
+                    print(f"WARNING: Numeric feature count ({num_numeric}) doesn't match scaler ({len(scaler_mean)}). Padding/truncating.")
+                    if num_numeric < len(scaler_mean):
+                        padding = np.zeros((1, len(scaler_mean) - num_numeric), dtype=np.float32)
+                        numeric_features = np.concatenate([numeric_features, padding], axis=1)
+                    elif num_numeric > len(scaler_mean):
+                        numeric_features = numeric_features[:, :len(scaler_mean)]
+                    scaled_numeric = (numeric_features - scaler_mean) / scaler_scale
+                    feature_array = np.concatenate([team_features, scaled_numeric], axis=1)
+                    current_features = feature_array.shape[1]
             else:
-                # If feature count doesn't match, pad or truncate
-                if current_features < len(scaler_mean):
-                    # Pad with zeros
-                    padding = np.zeros((1, len(scaler_mean) - current_features), dtype=np.float32)
-                    feature_array = np.concatenate([feature_array, padding], axis=1)
-                    current_features = feature_array.shape[1]
-                elif current_features > len(scaler_mean):
-                    # Truncate
-                    feature_array = feature_array[:, :len(scaler_mean)]
-                    current_features = feature_array.shape[1]
-                # Apply scaling
-                feature_array = (feature_array - scaler_mean) / scaler_scale
+                # No team features, scale all features
+                if current_features == len(scaler_mean):
+                    feature_array = (feature_array - scaler_mean) / scaler_scale
+                else:
+                    print(f"WARNING: Feature count ({current_features}) doesn't match scaler ({len(scaler_mean)}). Padding/truncating.")
+                    if current_features < len(scaler_mean):
+                        padding = np.zeros((1, len(scaler_mean) - current_features), dtype=np.float32)
+                        feature_array = np.concatenate([feature_array, padding], axis=1)
+                        current_features = feature_array.shape[1]
+                    elif current_features > len(scaler_mean):
+                        feature_array = feature_array[:, :len(scaler_mean)]
+                        current_features = feature_array.shape[1]
+                    feature_array = (feature_array - scaler_mean) / scaler_scale
         
         # Ensure feature count matches model input
         if current_features != expected_features:
+            print(f"WARNING: Feature count mismatch. Current: {current_features}, Expected: {expected_features}")
             # Pad or truncate to match expected features
             if current_features < expected_features:
                 padding = np.zeros((1, expected_features - current_features), dtype=np.float32)
                 feature_array = np.concatenate([feature_array, padding], axis=1)
+                print(f"DEBUG: Padded features to {expected_features}")
             elif current_features > expected_features:
                 feature_array = feature_array[:, :expected_features]
+                print(f"DEBUG: Truncated features to {expected_features}")
         
         # Run inference
         outputs = self.session.run(None, {self.input_name: feature_array})
@@ -727,40 +543,67 @@ class ONNXPredictor:
         for i, output in enumerate(outputs):
             print(f"DEBUG: Output {i} shape: {output.shape if hasattr(output, 'shape') else type(output)}")
         
-        # Extract probabilities robustly: prefer float arrays with 3+ values; avoid class-index outputs
+        # Extract probabilities robustly: handle sklearn-onnx outputs (label + probability map)
         proba = None
-        candidate_arrays = []
+
+        # 1) Handle list-of-dicts probability output: seq(map(int64, tensor(float)))
         for out in outputs:
-            if isinstance(out, np.ndarray):
-                arr = out
-                if arr.ndim == 2 and arr.shape[0] == 1:
-                    arr = arr[0]
-                if arr.ndim == 1:
-                    candidate_arrays.append(arr)
+            if isinstance(out, list) and len(out) > 0 and isinstance(out[0], dict):
+                prob_map = out[0]
+                # Build probability vector by class index 0..2
+                tmp = np.zeros(3, dtype=np.float32)
+                for k, v in prob_map.items():
+                    try:
+                        idx = int(k)
+                    except Exception:
+                        continue
+                    if idx < 0 or idx >= 3:
+                        continue
+                    # v may be scalar, 0-dim np array, or 1-element array
+                    if isinstance(v, np.ndarray):
+                        if v.size == 1:
+                            tmp[idx] = float(v.ravel()[0])
+                        else:
+                            tmp[idx] = float(v[0])
+                    else:
+                        tmp[idx] = float(v)
+                proba = tmp
+                break
 
-        float_candidates = [a for a in candidate_arrays if np.issubdtype(a.dtype, np.floating)]
-        int_candidates = [a for a in candidate_arrays if np.issubdtype(a.dtype, np.integer)]
+        # 2) If not found, fall back to numpy array heuristic
+        if proba is None:
+            candidate_arrays = []
+            for out in outputs:
+                if isinstance(out, np.ndarray):
+                    arr = out
+                    if arr.ndim == 2 and arr.shape[0] == 1:
+                        arr = arr[0]
+                    if arr.ndim == 1:
+                        candidate_arrays.append(arr)
 
-        if float_candidates:
-            best = max(float_candidates, key=lambda a: a.shape[0])
-            if best.shape[0] >= 3:
-                proba = best[:3]
-            elif best.shape[0] == 2:
-                proba = np.array([best[0], best[1], max(0.0, 1.0 - float(best[0]) - float(best[1]))])
-            elif best.shape[0] == 1:
-                v = float(best[0])
-                proba = np.array([v, 1.0 - v, 0.0])
-        elif int_candidates:
-            # Likely class index only; avoid degenerate one-hot 1/0/0 on Render
-            idx_arr = int_candidates[0]
-            pred_idx = int(idx_arr[0]) if idx_arr.shape[0] >= 1 else -1
-            proba = np.array([0.33, 0.34, 0.33])
-            if 0 <= pred_idx < 3:
-                proba[pred_idx] += 0.34
-                rest = (1.0 - proba[pred_idx]) / 2.0
-                for i in range(3):
-                    if i != pred_idx:
-                        proba[i] = rest
+            float_candidates = [a for a in candidate_arrays if np.issubdtype(a.dtype, np.floating)]
+            int_candidates = [a for a in candidate_arrays if np.issubdtype(a.dtype, np.integer)]
+
+            if float_candidates:
+                best = max(float_candidates, key=lambda a: a.shape[0])
+                if best.shape[0] >= 3:
+                    proba = best[:3]
+                elif best.shape[0] == 2:
+                    proba = np.array([best[0], best[1], max(0.0, 1.0 - float(best[0]) - float(best[1]))])
+                elif best.shape[0] == 1:
+                    v = float(best[0])
+                    proba = np.array([v, 1.0 - v, 0.0])
+            elif int_candidates:
+                # Likely class index only; avoid degenerate one-hot 1/0/0 on Render
+                idx_arr = int_candidates[0]
+                pred_idx = int(idx_arr[0]) if idx_arr.shape[0] >= 1 else -1
+                proba = np.array([0.33, 0.34, 0.33])
+                if 0 <= pred_idx < 3:
+                    proba[pred_idx] += 0.34
+                    rest = (1.0 - proba[pred_idx]) / 2.0
+                    for i in range(3):
+                        if i != pred_idx:
+                            proba[i] = rest
 
         if proba is None:
             print(f"WARNING: Could not extract probabilities, using defaults. Output types: {[type(o) for o in outputs]}")

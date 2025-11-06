@@ -157,30 +157,30 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Path to EPL models
+# Path to EPL models (legacy, now using Europe-Domestic-Leagues structure)
 # Using Django app directory for ONNX model
-EPL_MODEL_BASE = BASE_DIR / 'predictions' / 'models_storage' / 'EPL'
+EPL_MODEL_BASE = BASE_DIR / 'predictions' / 'models_storage' / 'Europe-Domestic-Leagues' / 'EPL'
 
 # Path to external training directory (for preprocessing pipeline and dataset)
 # Base path for all leagues training data
 # First try the data directory in the project root (for deployment)
-TRAINING_BASE_DIR = BASE_DIR / 'data' / 'Europe-Domestic-Leagues'
+TRAINING_BASE_DIR = BASE_DIR / 'predictions'/ 'models_storage' / 'Europe-Domestic-Leagues'
 
 # If that doesn't exist, try the old path (for local development)
-if not TRAINING_BASE_DIR.exists():
-    TRAINING_BASE_DIR = BASE_DIR.parent / 'Quick Delivery' / 'Europe-Domestic-Leagues'
+# if not TRAINING_BASE_DIR.exists():
+# TRAINING_BASE_DIR = BASE_DIR.parent / 'Quick Delivery' / 'Europe-Domestic-Leagues'
 
-# Mapping from league slugs to their training directory names
+# Mapping from league slugs to their training directory names (matches models_storage folder names)
 LEAGUE_TRAINING_MAP = {
     'epl': 'EPL',
     'english-premier-league': 'EPL',
-    'laliga-spain': 'LaLiga-Spain',
-    'italian-serie-a': 'Italian-Serie-A',
-    'german-bundesliga': 'German-Bundesliga',
-    'french-ligue-1': 'French-Ligue-1',
-    'portuguese-primeira-liga': 'Portuguese-Primeira-Liga',
-    'efl-championship': 'EFL-Championship',
-    'scottish-premiership': 'Scottish-Premiership',
+    'laliga-spain': 'LaLigaSpain',  # Matches models_storage folder name
+    'italian-serie-a': 'SerieA',
+    'german-bundesliga': 'BundesLiga',
+    'french-ligue-1': 'Ligue1',
+    'portuguese-primeira-liga': 'PremeiraLiga',
+    'efl-championship': 'EFL',
+    'scottish-premiership': 'ScotishPremiership',
 }
 
 # Function to get training base for a league
