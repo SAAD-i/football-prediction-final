@@ -26,6 +26,14 @@ LEAGUE_FOLDER_MAP = {
     'portuguese-primeira-liga': 'PremeiraLiga',
     'efl-championship': 'EFL',
     'scottish-premiership': 'ScotishPremiership',
+    # Europe - Domestic Cups
+    'english-fa-cup': 'English-FA-Cup',
+    'english-carabao-cup': 'English-Carabao-Cup',
+    'spanish-copa-del-rey': 'Spanish-Copa-del-Rey',
+    'german-cup-dfb-pokal': 'German-Cup-DFB-Pokal',
+    'coppa-italia': 'Coppa-Italia',
+    'coupe-de-france': 'Coupe-de-France',
+    'scottish-league-cup': 'Scottish-League-Cup',
 }
 
 # Mapping from URL slugs to training directory names (now matches models_storage folder names)
@@ -39,6 +47,14 @@ LEAGUE_TRAINING_FOLDER_MAP = {
     'portuguese-primeira-liga': 'PremeiraLiga',
     'efl-championship': 'EFL',
     'scottish-premiership': 'ScotishPremiership',
+    # Europe - Domestic Cups
+    'english-fa-cup': 'English-FA-Cup',
+    'english-carabao-cup': 'English-Carabao-Cup',
+    'spanish-copa-del-rey': 'Spanish-Copa-del-Rey',
+    'german-cup-dfb-pokal': 'German-Cup-DFB-Pokal',
+    'coppa-italia': 'Coppa-Italia',
+    'coupe-de-france': 'Coupe-de-France',
+    'scottish-league-cup': 'Scottish-League-Cup',
 }
 
 # Mapping from URL slugs to training script filenames
@@ -237,6 +253,14 @@ class ONNXPredictor:
                 'efl-championship': 'championshipdata.csv',
                 'scottish-premiership': 'scottishpremdata.csv',
                 'laliga-spain': 'laligadata.csv',
+                # Europe - Domestic Cups
+                'english-fa-cup': 'facupdata.csv',
+                'english-carabao-cup': 'carabaocupdata.csv',
+                'spanish-copa-del-rey': 'copadelreydata.csv',
+                'german-cup-dfb-pokal': 'dfbpokaldata.csv',
+                'coppa-italia': 'coppaitaliadata.csv',
+                'coupe-de-france': 'coupedefrancedata.csv',
+                'scottish-league-cup': 'scottishleaguecupdata.csv',
             }
             data_filename = data_files.get(normalized_slug)
             if not data_filename:

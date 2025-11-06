@@ -65,7 +65,7 @@ def predict_match(request):
         # Get league
         league = get_object_or_404(League, slug=league_slug, is_active=True)
         
-        # Supported leagues (Europe - Domestic Leagues)
+        # Supported leagues (Europe - Domestic Leagues and Cups)
         supported_leagues = [
             'epl', 'english-premier-league',
             'laliga-spain',
@@ -75,6 +75,14 @@ def predict_match(request):
             'portuguese-primeira-liga',
             'efl-championship',
             'scottish-premiership',
+            # Europe - Domestic Cups
+            'english-fa-cup',
+            'english-carabao-cup',
+            'spanish-copa-del-rey',
+            'german-cup-dfb-pokal',
+            'coppa-italia',
+            'coupe-de-france',
+            'scottish-league-cup',
         ]
         
         # Check if model is available

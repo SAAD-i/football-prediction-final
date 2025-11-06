@@ -16,6 +16,14 @@ LEAGUE_FOLDER_MAP = {
     'portuguese-primeira-liga': 'PremeiraLiga',
     'efl-championship': 'EFL',
     'scottish-premiership': 'ScotishPremiership',
+    # Europe - Domestic Cups
+    'english-fa-cup': 'English-FA-Cup',
+    'english-carabao-cup': 'English-Carabao-Cup',
+    'spanish-copa-del-rey': 'Spanish-Copa-del-Rey',
+    'german-cup-dfb-pokal': 'German-Cup-DFB-Pokal',
+    'coppa-italia': 'Coppa-Italia',
+    'coupe-de-france': 'Coupe-de-France',
+    'scottish-league-cup': 'Scottish-League-Cup',
 }
 
 

@@ -48,11 +48,13 @@ LOGGING = {
     },
 }
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '.up.railway.app',  # allow any Railway subdomain
-]
+ALLOWED_HOSTS = ['*']
+
+# ALLOWED_HOSTS = [
+#     'localhost',
+#     '127.0.0.1',
+#     '.up.railway.app',  # allow any Railway subdomain
+# ]
 
 # Add any additional hosts from environment variable
 if os.environ.get('ALLOWED_HOSTS'):
