@@ -49,9 +49,9 @@ LOGGING = {
 }
 
 ALLOWED_HOSTS = [
-    'football-prediction-final.onrender.com',
     'localhost',
     '127.0.0.1',
+    '.up.railway.app',  # allow any Railway subdomain
 ]
 
 # Add any additional hosts from environment variable
