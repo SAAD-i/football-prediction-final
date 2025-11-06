@@ -131,7 +131,10 @@ class ONNXPredictor:
         
         # Load ONNX model
         print(f"Loading ONNX model from: {onnx_path}")
-        self.session = ort.InferenceSession(str(onnx_path))
+        try:
+            self.session = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
+        except Exception:
+            self.session = ort.InferenceSession(str(onnx_path))
         self.input_name = self.session.get_inputs()[0].name
         input_shape = self.session.get_inputs()[0].shape
         expected_features = input_shape[1] if len(input_shape) > 1 else input_shape[0]
@@ -561,7 +564,7 @@ class ONNXPredictor:
             training_base = self._get_league_training_base()
             if training_base is None:
                 raise FileNotFoundError(f"Training base not found for league: {self.league_slug}")
-            
+        
             normalized_slug = self.league_slug.lower().strip()
             pkl_filename = LEAGUE_PKL_MODEL_MAP.get(normalized_slug)
             if not pkl_filename:
@@ -685,75 +688,41 @@ class ONNXPredictor:
         for i, output in enumerate(outputs):
             print(f"DEBUG: Output {i} shape: {output.shape if hasattr(output, 'shape') else type(output)}")
         
-        # Extract probabilities - same approach as test_50.py
+        # Extract probabilities robustly: prefer float arrays with 3+ values; avoid class-index outputs
         proba = None
-        
-        # Try to find probability output (same logic as test_50.py)
-        if len(outputs) >= 2:
-            # Usually output[1] is probabilities
-            proba_output = outputs[1]
-            if isinstance(proba_output, np.ndarray):
-                if len(proba_output.shape) == 2 and proba_output.shape[0] == 1:
-                    # Shape [1, 3] or [1, N] - take first row
-                    if proba_output.shape[1] == 3:
-                        proba = proba_output[0]
-                    elif proba_output.shape[1] > 3:
-                        proba = proba_output[0, :3]
-                    else:
-                        # Flatten and pad if needed
-                        proba = proba_output.flatten()
-                        if len(proba) < 3:
-                            proba = np.pad(proba, (0, 3 - len(proba)), mode='constant', constant_values=0.0)
-                elif len(proba_output.shape) == 1:
-                    # Shape [3] or [N]
-                    if proba_output.shape[0] == 3:
-                        proba = proba_output
-                    elif proba_output.shape[0] > 3:
-                        proba = proba_output[:3]
-                    else:
-                        # Pad if less than 3
-                        proba = np.pad(proba_output, (0, 3 - proba_output.shape[0]), mode='constant', constant_values=0.0)
-        
-        # If still no probabilities, try first output
-        if proba is None:
-            first_output = outputs[0]
-            if isinstance(first_output, np.ndarray):
-                if len(first_output.shape) == 2 and first_output.shape[0] == 1:
-                    # Shape [1, 3] or [1, N]
-                    if first_output.shape[1] == 3:
-                        proba = first_output[0]
-                    elif first_output.shape[1] > 3:
-                        proba = first_output[0, :3]
-                    else:
-                        proba = first_output.flatten()
-                        if len(proba) < 3:
-                            proba = np.pad(proba, (0, 3 - len(proba)), mode='constant', constant_values=0.0)
-                elif len(first_output.shape) == 1:
-                    if first_output.shape[0] == 3:
-                        proba = first_output
-                    elif first_output.shape[0] > 3:
-                        proba = first_output[:3]
-                    elif first_output.shape[0] == 1:
-                        # Single prediction index - create one-hot probabilities
-                        pred_idx = int(first_output[0])
-                        proba = np.zeros(3)
-                        if 0 <= pred_idx < 3:
-                            proba[pred_idx] = 1.0
-                        else:
-                            proba = np.array([0.33, 0.34, 0.33])
-                    else:
-                        proba = np.pad(first_output, (0, 3 - first_output.shape[0]), mode='constant', constant_values=0.0)
-            elif isinstance(first_output, (list, tuple)):
-                # Convert list to array
-                arr = np.array(first_output)
-                if len(arr) == 3:
-                    proba = arr
-                elif len(arr) > 3:
-                    proba = arr[:3]
-                else:
-                    proba = np.pad(arr, (0, 3 - len(arr)), mode='constant', constant_values=0.0)
-        
-        # Final fallback - use default probabilities
+        candidate_arrays = []
+        for out in outputs:
+            if isinstance(out, np.ndarray):
+                arr = out
+                if arr.ndim == 2 and arr.shape[0] == 1:
+                    arr = arr[0]
+                if arr.ndim == 1:
+                    candidate_arrays.append(arr)
+
+        float_candidates = [a for a in candidate_arrays if np.issubdtype(a.dtype, np.floating)]
+        int_candidates = [a for a in candidate_arrays if np.issubdtype(a.dtype, np.integer)]
+
+        if float_candidates:
+            best = max(float_candidates, key=lambda a: a.shape[0])
+            if best.shape[0] >= 3:
+                proba = best[:3]
+            elif best.shape[0] == 2:
+                proba = np.array([best[0], best[1], max(0.0, 1.0 - float(best[0]) - float(best[1]))])
+            elif best.shape[0] == 1:
+                v = float(best[0])
+                proba = np.array([v, 1.0 - v, 0.0])
+        elif int_candidates:
+            # Likely class index only; avoid degenerate one-hot 1/0/0 on Render
+            idx_arr = int_candidates[0]
+            pred_idx = int(idx_arr[0]) if idx_arr.shape[0] >= 1 else -1
+            proba = np.array([0.33, 0.34, 0.33])
+            if 0 <= pred_idx < 3:
+                proba[pred_idx] += 0.34
+                rest = (1.0 - proba[pred_idx]) / 2.0
+                for i in range(3):
+                    if i != pred_idx:
+                        proba[i] = rest
+
         if proba is None:
             print(f"WARNING: Could not extract probabilities, using defaults. Output types: {[type(o) for o in outputs]}")
             proba = np.array([0.33, 0.34, 0.33])
