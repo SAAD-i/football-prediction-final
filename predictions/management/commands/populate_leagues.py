@@ -15,13 +15,14 @@ LEAGUE_FOLDER_MAP = {
     'french-ligue-1': 'Ligue1',
     'portuguese-primeira-liga': 'PremeiraLiga',
     'efl-championship': 'EFL',
+    'scottish-premiership': 'ScotishPremiership',
 }
 
 
 def get_teams_from_json(league_slug: str) -> list:
     """Load teams from preprocessing_parameters.json for a league"""
     folder_name = LEAGUE_FOLDER_MAP.get(league_slug, league_slug)
-    json_path = Path(settings.BASE_DIR) / 'predictions' / 'models_storage' / folder_name / 'preprocessing_parameters.json'
+    json_path = Path(settings.BASE_DIR) / 'predictions' / 'models_storage' / 'Europe-Domestic-Leagues' / folder_name / 'preprocessing_parameters.json'
     
     if json_path.exists():
         try:

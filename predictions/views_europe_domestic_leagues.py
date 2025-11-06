@@ -79,7 +79,7 @@ def scottish_premiership(request):
         import json
         from pathlib import Path
         from django.conf import settings
-        json_path = Path(settings.BASE_DIR) / 'predictions' / 'models_storage' / 'ScotishPremiership' / 'preprocessing_parameters.json'
+        json_path = Path(settings.BASE_DIR) / 'predictions' / 'models_storage' / 'Europe-Domestic-Leagues' / 'ScotishPremiership' / 'preprocessing_parameters.json'
         fallback_teams = []
         try:
             if json_path.exists():
