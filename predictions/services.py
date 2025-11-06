@@ -400,6 +400,7 @@ class ONNXPredictor:
         if training_base is None:
             raise ValueError(f"Training base not found for league: {self.league_slug}")
         
+        print(f"DEBUG: Using training base: {training_base}")
         if str(training_base) not in sys.path:
             sys.path.insert(0, str(training_base))
         
@@ -407,14 +408,28 @@ class ONNXPredictor:
         normalized_slug = self.league_slug.lower().strip()
         training_script = LEAGUE_TRAINING_SCRIPT_MAP.get(normalized_slug)
         
+        engineer_features = None
+        load_dataset = None
+        DATA_PATH = None
+        
         if training_script:
             # League-specific script (EPL, LaLiga)
             module_name = training_script.replace('.py', '')
-            training_module = __import__(module_name, fromlist=['engineer_features', 'load_dataset', 'DATA_PATH'])
-            engineer_features = training_module.engineer_features
-            load_dataset = training_module.load_dataset
-            DATA_PATH = training_module.DATA_PATH
-        else:
+            script_path = training_base / training_script
+            print(f"DEBUG: Looking for training script: {script_path}")
+            if script_path.exists():
+                try:
+                    training_module = __import__(module_name, fromlist=['engineer_features', 'load_dataset', 'DATA_PATH'])
+                    engineer_features = training_module.engineer_features
+                    load_dataset = training_module.load_dataset
+                    DATA_PATH = training_module.DATA_PATH
+                    print(f"DEBUG: Successfully imported {module_name}")
+                except ImportError as e:
+                    print(f"WARNING: Could not import {module_name}: {e}")
+            else:
+                print(f"WARNING: Training script not found: {script_path}")
+        
+        if engineer_features is None:
             # Generic script for other leagues (located in parent directory)
             import sys
             import importlib.util
@@ -424,28 +439,43 @@ class ONNXPredictor:
             
             # Try importing from parent directory
             generic_script_path = Path(parent_dir) / 'train_league_generic.py'
+            print(f"DEBUG: Looking for generic script: {generic_script_path}")
             if generic_script_path.exists():
-                spec = importlib.util.spec_from_file_location("train_league_generic", str(generic_script_path))
-                train_league_generic = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(train_league_generic)
-                engineer_features = train_league_generic.engineer_features
-                load_dataset = train_league_generic.load_dataset
-            else:
-                raise FileNotFoundError(f"train_league_generic.py not found at {generic_script_path}")
+                try:
+                    spec = importlib.util.spec_from_file_location("train_league_generic", str(generic_script_path))
+                    train_league_generic = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(train_league_generic)
+                    engineer_features = train_league_generic.engineer_features
+                    load_dataset = train_league_generic.load_dataset
+                    print(f"DEBUG: Successfully imported train_league_generic")
+                except Exception as e:
+                    print(f"WARNING: Could not import train_league_generic: {e}")
             
             # Get data file path
             data_files = {
+                'epl': 'epldata.csv',
+                'english-premier-league': 'epldata.csv',
                 'italian-serie-a': 'serieadata.csv',
                 'german-bundesliga': 'bundesligadata.csv',
                 'french-ligue-1': 'ligue1data.csv',
                 'portuguese-primeira-liga': 'primeiraligadata.csv',
                 'efl-championship': 'championshipdata.csv',
                 'scottish-premiership': 'scottishpremdata.csv',
+                'laliga-spain': 'laligadata.csv',
             }
             data_filename = data_files.get(normalized_slug)
             if not data_filename:
                 raise ValueError(f"No data file mapping for league: {self.league_slug}")
             DATA_PATH = str(training_base / data_filename)
+            print(f"DEBUG: Using data file: {DATA_PATH}")
+        
+        # If still no engineer_features function, raise error
+        if engineer_features is None or load_dataset is None:
+            raise FileNotFoundError(
+                f"Training script not found for {self.league_slug}. "
+                f"Expected: {training_script if training_script else 'train_league_generic.py'} "
+                f"in {training_base} or {training_base.parent}"
+            )
         
         # Load and engineer features (training data only, no 2024-25)
         if df is None:
@@ -589,13 +619,22 @@ class ONNXPredictor:
         """Predict using ONNX model directly with preprocessing parameters - same approach as EPL"""
         # Prefer engineered features when training data is available; otherwise use safe defaults
         training_base = self._get_league_training_base()
+        print(f"DEBUG: Training base for {self.league_slug}: {training_base}")
         if training_base is not None:
             try:
+                print(f"DEBUG: Attempting to get feature row for {home_team} vs {away_team}")
                 feature_row = self._get_feature_row(home_team, away_team, df)
+                print(f"DEBUG: Successfully got feature row with {len(feature_row.columns)} columns")
             except Exception as e:
-                print(f"WARNING: Engineered features unavailable ({e}); using default feature row.")
+                import traceback
+                print(f"ERROR: Engineered features unavailable for {home_team} vs {away_team}")
+                print(f"ERROR: Exception: {str(e)}")
+                print(f"ERROR: Traceback:")
+                traceback.print_exc()
+                print(f"WARNING: Falling back to default feature row.")
                 feature_row = self._get_feature_row_simple(home_team, away_team)
         else:
+            print(f"WARNING: Training base is None for {self.league_slug}, using default features")
             feature_row = self._get_feature_row_simple(home_team, away_team)
         
         # Get expected feature count from model

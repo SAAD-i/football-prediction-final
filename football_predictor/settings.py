@@ -163,7 +163,12 @@ EPL_MODEL_BASE = BASE_DIR / 'predictions' / 'models_storage' / 'EPL'
 
 # Path to external training directory (for preprocessing pipeline and dataset)
 # Base path for all leagues training data
-TRAINING_BASE_DIR = BASE_DIR.parent / 'Quick Delivery' / 'Europe-Domestic-Leagues'
+# First try the data directory in the project root (for deployment)
+TRAINING_BASE_DIR = BASE_DIR / 'data' / 'Europe-Domestic-Leagues'
+
+# If that doesn't exist, try the old path (for local development)
+if not TRAINING_BASE_DIR.exists():
+    TRAINING_BASE_DIR = BASE_DIR.parent / 'Quick Delivery' / 'Europe-Domestic-Leagues'
 
 # Mapping from league slugs to their training directory names
 LEAGUE_TRAINING_MAP = {
@@ -189,8 +194,8 @@ def get_league_training_base(league_slug: str):
             return training_path
     return None
 
-# Check if training directory exists, if not, use a fallback or handle gracefully
-if not os.path.exists(TRAINING_BASE_DIR):
+# Check if training directory exists, if not, set to None and handle gracefully
+if not TRAINING_BASE_DIR.exists():
     # For production, we might need to store these files elsewhere
     # For now, set to None and handle in services.py
     TRAINING_BASE_DIR = None
