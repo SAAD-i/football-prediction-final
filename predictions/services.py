@@ -26,6 +26,7 @@ LEAGUE_FOLDER_MAP = {
     'french-ligue-1': 'Ligue1',
     'portuguese-primeira-liga': 'PremeiraLiga',
     'efl-championship': 'EFL',
+    'scottish-premiership': 'ScotishPremiership',
 }
 
 # Mapping from URL slugs to training directory names (for Quick Delivery)
@@ -583,8 +584,16 @@ class ONNXPredictor:
     
     def _predict_with_onnx(self, home_team: str, away_team: str, df: pd.DataFrame = None) -> Tuple[str, Dict[str, float]]:
         """Predict using ONNX model directly with preprocessing parameters - same approach as EPL"""
-        # Use the same feature creation as EPL (with defaults when no training data available)
-        feature_row = self._get_feature_row_simple(home_team, away_team)
+        # Prefer engineered features when training data is available; otherwise use safe defaults
+        training_base = self._get_league_training_base()
+        if training_base is not None:
+            try:
+                feature_row = self._get_feature_row(home_team, away_team, df)
+            except Exception as e:
+                print(f"WARNING: Engineered features unavailable ({e}); using default feature row.")
+                feature_row = self._get_feature_row_simple(home_team, away_team)
+        else:
+            feature_row = self._get_feature_row_simple(home_team, away_team)
         
         # Get expected feature count from model
         input_shape = self.session.get_inputs()[0].shape

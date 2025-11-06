@@ -74,6 +74,7 @@ def predict_match(request):
             'french-ligue-1',
             'portuguese-primeira-liga',
             'efl-championship',
+            'scottish-premiership',
         ]
         
         # Check if model is available
